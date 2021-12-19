@@ -1,10 +1,16 @@
-package org.hoohoot.livingdocumentation.wordcount;
+package org.hoohoot.livingdocumentation.processing.wordcount;
 
-import com.google.common.collect.HashMultiset;
-import com.google.common.collect.Multiset;
+import org.hoohoot.livingdocumentation.processing.FileHelper;
+import org.hoohoot.livingdocumentation.processing.LivingDocumentationProcessor;
+import org.hoohoot.livingdocumentation.annotations.DomainLayer;
+import org.hoohoot.livingdocumentation.processing.wordcount.model.WordCloud;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.processing.ProcessingEnvironment;
+import javax.annotation.processing.RoundEnvironment;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.PackageElement;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -12,14 +18,31 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.StringTokenizer;
-import java.util.stream.Collectors;
 
-public class WordCloudGenerator {
-    private static final Logger logger = LoggerFactory.getLogger(WordCloudGenerator.class);
-    private final Multiset<String> bag = HashMultiset.create();
-    private int max = 0;
+public class WordCloudProcessor implements LivingDocumentationProcessor<WordCloudWriter, WordCloud> {
+    private static final Logger logger = LoggerFactory.getLogger(WordCloudProcessor.class);
+    private final WordCloud wordCloud = new WordCloud();
 
-    static final Set<String> IGNORED = Set.of(
+    @Override
+    public WordCloudWriter writer() {
+        return new WordCloudWriter();
+    }
+
+    @Override
+    public WordCloud output(RoundEnvironment roundEnvironment, ProcessingEnvironment processingEnvironment) throws IOException {
+
+        Set<? extends Element> domainLayer = roundEnvironment.getElementsAnnotatedWith(DomainLayer.class);
+        for (Element element : domainLayer) {
+            PackageElement packageElement = (PackageElement) element;
+            var qualifiedPackageName = packageElement.getQualifiedName();
+            var path = FileHelper.resolvePathFromPackageName(qualifiedPackageName);
+            this.populateWordCloud(path);
+        }
+
+        return wordCloud;
+    }
+
+    private static final Set<String> IGNORED = Set.of(
             // Stop Words
             "the", "it", "is", "to", "with", "what's", "by", "or", "and", "both", "be", "of",
             "in", "obj", "string", "hashcode", "equals", "other", "tostring", "false", "true", "object", "annotations",
@@ -33,11 +56,11 @@ public class WordCloudGenerator {
             "native", "super", "while", "record"
     );
 
-    void scan(Path sourceFolder) throws IOException {
-        final var path = Path.of("src/main/java", sourceFolder.toString());
-        final var sourceFile = path.toFile();
+    void populateWordCloud(Path sourceFolder) throws IOException {
+        var path = Path.of("src/main/java", sourceFolder.toString());
+        var sourceFile = path.toFile();
 
-        final File[] listOfFiles = sourceFile.listFiles();
+        File[] listOfFiles = sourceFile.listFiles();
         if (listOfFiles == null) {
             throw new IOException("File not found " + sourceFile.getAbsolutePath());
         } else {
@@ -47,14 +70,14 @@ public class WordCloudGenerator {
         for (File file : listOfFiles) {
             if (file.isDirectory()) {
                 logger.info("Scanning file {}", file.getName());
-                scan(file.toPath());
+                populateWordCloud(file.toPath());
             }
 
-            final var isJavaSourceFile = file.isFile() && file.getName().endsWith(".java");
+            var isJavaSourceFile = file.isFile() && file.getName().endsWith(".java");
 
             if (isJavaSourceFile) {
                 logger.info("Scanning java file {}", file.getName());
-                final String content = new String(Files.readAllBytes(file.toPath()));
+                String content = new String(Files.readAllBytes(file.toPath()));
                 filter(content);
             }
         }
@@ -66,9 +89,7 @@ public class WordCloudGenerator {
             final String token = (String) tokenizer.nextElement();
 
             if (isMeaningful(token.trim().toLowerCase())) {
-                bag.add(token.trim().toLowerCase());
-                final int count = bag.count(token);
-                max = Math.max(max, count);
+                this.wordCloud.add(token);
             }
         }
     }
@@ -87,17 +108,5 @@ public class WordCloudGenerator {
         }
 
         return !IGNORED.contains(token);
-    }
-
-    public String toJSON() {
-        final StringBuilder sb = new StringBuilder();
-        final double scaling = 50. / max;
-        return this.bag.entrySet().stream().map(entry ->
-                        String.format("""
-                                    {
-                                        "text": "%s", 
-                                        "size": %f 
-                                    }""", entry.getElement(), scaling * entry.getCount()))
-                .collect(Collectors.joining(",\n"));
     }
 }
