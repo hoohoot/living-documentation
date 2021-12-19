@@ -1,6 +1,7 @@
 package org.hoohoot.livingdocumentation;
 
 import com.google.auto.service.AutoService;
+import org.hoohoot.livingdocumentation.exception.ResourceNotFoundException;
 import org.hoohoot.livingdocumentation.processing.FileHelper;
 import org.hoohoot.livingdocumentation.processing.glossary.GlossaryProcessor;
 import org.hoohoot.livingdocumentation.processing.wordcount.WordCloudProcessor;
@@ -24,8 +25,8 @@ public class LivingDocumentationAnnotationProcessor extends AbstractProcessor {
         try {
             new WordCloudProcessor().process(roundEnvironment, processingEnv);
             new GlossaryProcessor().process(roundEnvironment, processingEnv);
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (IOException | ResourceNotFoundException e) {
+            logger.error("Annotation processing failed : {}", e.getMessage());
         }
 
         return true;
