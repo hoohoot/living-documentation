@@ -1,18 +1,16 @@
 package org.hoohoot.livingdocumentation.processing.wordcount;
 
+import org.hoohoot.livingdocumentation.exception.ResourceNotFoundException;
 import org.hoohoot.livingdocumentation.processing.FileHelper;
 import org.hoohoot.livingdocumentation.processing.Writer;
 import org.hoohoot.livingdocumentation.processing.wordcount.model.WordCloud;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
-public class WordCloudWriter implements Writer<WordCloud> {
-    private static final Logger logger = LoggerFactory.getLogger(WordCloudWriter.class);
+public record WordCloudWriter() implements Writer<WordCloud> {
 
     @Override
-    public void write(WordCloud wordCloud) throws IOException {
+    public void write(WordCloud wordCloud) throws IOException, ResourceNotFoundException {
         var template = FileHelper.readResource("wordcloud/template.html");
         var renderedTemplate = template
                 .replace("{0}", "WordCloud")

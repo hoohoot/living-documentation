@@ -1,5 +1,6 @@
 package org.hoohoot.livingdocumentation.processing;
 
+import org.hoohoot.livingdocumentation.exception.ResourceNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,7 +52,7 @@ public class FileHelper {
         return Path.of(path);
     }
 
-    public static String readResource(String resourcePath) throws IOException {
+    public static String readResource(String resourcePath) throws ResourceNotFoundException, IOException {
         String lineSep = String.format("%n");
         final var systemResource = FileHelper.class.getClassLoader().getResourceAsStream(resourcePath);
         if (systemResource != null) {
@@ -60,8 +61,7 @@ public class FileHelper {
                         .collect(Collectors.joining(lineSep));
             }
         } else {
-            // TODO: Maybe some dedicated error
-            throw new RuntimeException("Should not happen");
+            throw new ResourceNotFoundException(resourcePath);
         }
     }
 }
